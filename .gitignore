@@ -57,3 +57,6 @@ build/
 
 # System files
 desktop.ini
+
+# Claude CLI task files
+arvad_task_files/

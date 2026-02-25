@@ -329,6 +329,11 @@
         elements.formInputs.forEach(input => {
             input.addEventListener('blur', () => validateField(input));
             input.addEventListener('input', () => clearFieldError(input));
+
+            // Add phone number formatting on input
+            if (input.type === 'tel') {
+                input.addEventListener('input', (e) => formatPhoneNumber(e.target));
+            }
         });
 
         // Form submission
@@ -449,6 +454,50 @@
         const errorElement = formGroup.querySelector('.error-message');
         if (errorElement) {
             errorElement.remove();
+        }
+    }
+
+    /**
+     * Format phone number with automatic formatting
+     * @param {HTMLInputElement} input - Phone input field
+     */
+    function formatPhoneNumber(input) {
+        if (!input) return;
+
+        // Get raw numbers only
+        let value = input.value.replace(/\D/g, '');
+
+        // Limit to 11 digits (for +1 country code)
+        if (value.length > 11) {
+            value = value.slice(0, 11);
+        }
+
+        // Format based on length
+        let formattedValue = '';
+
+        if (value.length === 0) {
+            formattedValue = '';
+        } else if (value.length <= 3) {
+            formattedValue = value;
+        } else if (value.length <= 6) {
+            formattedValue = `${value.slice(0, 3)}-${value.slice(3)}`;
+        } else if (value.length <= 10) {
+            formattedValue = `${value.slice(0, 3)}-${value.slice(3, 6)}-${value.slice(6)}`;
+        } else {
+            // 11 digits - includes country code
+            formattedValue = `+${value.slice(0, 1)}-${value.slice(1, 4)}-${value.slice(4, 7)}-${value.slice(7)}`;
+        }
+
+        // Update input value without triggering input event again
+        if (input.value !== formattedValue) {
+            const cursorPosition = input.selectionStart;
+            const oldLength = input.value.length;
+            input.value = formattedValue;
+
+            // Adjust cursor position after formatting
+            const newLength = formattedValue.length;
+            const diff = newLength - oldLength;
+            input.setSelectionRange(cursorPosition + diff, cursorPosition + diff);
         }
     }
 

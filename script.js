@@ -1,7 +1,7 @@
 /**
  * Local Shoe Factory Landing Page - Interactive JavaScript
  * Provides enhanced user experience through smooth scrolling, mobile menu,
- * image gallery, form validation, and lazy loading functionality.
+ * image gallery, form validation, lazy loading, and image optimization.
  */
 
 (function() {
@@ -12,15 +12,17 @@
         mobileMenuOpen: false,
         lightboxOpen: false,
         currentImageIndex: 0,
-        observers: []
+        observers: [],
+        loadedImages: new Set()
     };
 
     // Configuration
     const config = {
         smoothScrollDuration: 800,
         scrollOffset: 80,
-        lazyLoadRootMargin: '50px',
-        debounceDelay: 250
+        lazyLoadRootMargin: '100px',
+        debounceDelay: 250,
+        imagePreloadCount: 2
     };
 
     /**
@@ -34,7 +36,8 @@
         formInputs: null,
         productImages: null,
         lazyImages: null,
-        header: null
+        header: null,
+        productCards: null
     };
 
     /**
@@ -45,11 +48,13 @@
             cacheDOMElements();
             setupEventListeners();
             initLazyLoading();
+            initImagePreloading();
             initSmoothScroll();
             initMobileMenu();
             initContactForm();
             initImageGallery();
             initHeaderScroll();
+            initProductInteractions();
             logInfo('Application initialized successfully');
         } catch (error) {
             logError('Initialization failed', error);
@@ -68,6 +73,7 @@
         elements.productImages = document.querySelectorAll('.product-image img');
         elements.lazyImages = document.querySelectorAll('img[loading="lazy"]');
         elements.header = document.querySelector('header');
+        elements.productCards = document.querySelectorAll('.product-card');
     }
 
     /**
@@ -699,16 +705,14 @@
     }
 
     /**
-     * Initialize lazy loading for images
+     * Initialize lazy loading for images using Intersection Observer
      */
     function initLazyLoading() {
         // Check for Intersection Observer support
         if (!('IntersectionObserver' in window)) {
-            logWarning('IntersectionObserver not supported, loading all images');
+            logWarning('IntersectionObserver not supported, loading all images immediately');
             elements.lazyImages.forEach(img => {
-                if (img.dataset.src) {
-                    img.src = img.dataset.src;
-                }
+                loadImageWithFallback(img);
             });
             return;
         }
@@ -718,13 +722,14 @@
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const img = entry.target;
-                        loadImage(img);
+                        loadImageWithFallback(img);
                         observer.unobserve(img);
                     }
                 });
             },
             {
-                rootMargin: config.lazyLoadRootMargin
+                rootMargin: config.lazyLoadRootMargin,
+                threshold: 0.01
             }
         );
 
@@ -737,14 +742,17 @@
     }
 
     /**
-     * Load lazy image
+     * Load image with error handling and fallback
      * @param {HTMLImageElement} img - Image element to load
      */
-    function loadImage(img) {
-        if (!img) return;
+    function loadImageWithFallback(img) {
+        if (!img || state.loadedImages.has(img)) return;
 
-        const src = img.dataset.src || img.src;
+        const src = img.dataset.src || img.getAttribute('src');
         if (!src) return;
+
+        // Mark as being loaded
+        state.loadedImages.add(img);
 
         // Create temporary image to preload
         const tempImg = new Image();
@@ -752,22 +760,106 @@
         tempImg.onload = () => {
             img.src = src;
             img.classList.add('loaded');
-            img.style.transition = 'opacity 0.3s ease-in-out';
-            img.style.opacity = '0';
 
+            // Fade in animation
+            img.style.opacity = '0';
             requestAnimationFrame(() => {
+                img.style.transition = 'opacity 0.4s ease-in-out';
                 img.style.opacity = '1';
             });
 
-            logInfo('Image loaded', { src });
+            logInfo('Image loaded successfully', { src });
         };
 
         tempImg.onerror = () => {
             logError('Image failed to load', { src });
-            img.alt = 'Image failed to load';
+
+            // Set fallback placeholder
+            img.alt = 'Image unavailable - failed to load';
+            img.style.backgroundColor = '#f3f4f6';
+            img.classList.add('image-error');
+
+            // Create error indicator
+            const errorOverlay = document.createElement('div');
+            errorOverlay.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #6b7280;
+                text-align: center;
+                font-size: 0.875rem;
+                padding: 1rem;
+            `;
+            errorOverlay.textContent = 'Image unavailable';
+
+            const container = img.parentElement;
+            if (container) {
+                container.style.position = 'relative';
+                container.appendChild(errorOverlay);
+            }
         };
 
         tempImg.src = src;
+    }
+
+    /**
+     * Initialize image preloading for better user experience
+     */
+    function initImagePreloading() {
+        if (!elements.productImages || elements.productImages.length === 0) {
+            return;
+        }
+
+        // Preload first few product images
+        const preloadCount = Math.min(config.imagePreloadCount, elements.productImages.length);
+
+        for (let i = 0; i < preloadCount; i++) {
+            const img = elements.productImages[i];
+            if (img && !img.hasAttribute('loading')) {
+                const preloadLink = document.createElement('link');
+                preloadLink.rel = 'preload';
+                preloadLink.as = 'image';
+                preloadLink.href = img.src;
+                document.head.appendChild(preloadLink);
+            }
+        }
+
+        logInfo('Image preloading initialized', { count: preloadCount });
+    }
+
+    /**
+     * Initialize product card interactions
+     */
+    function initProductInteractions() {
+        if (!elements.productCards || elements.productCards.length === 0) {
+            logWarning('No product cards found');
+            return;
+        }
+
+        elements.productCards.forEach(card => {
+            // Add hover effect enhancements
+            card.addEventListener('mouseenter', () => {
+                card.style.willChange = 'transform, box-shadow';
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.willChange = 'auto';
+            });
+
+            // Add keyboard navigation
+            const inquireButton = card.querySelector('.btn-small');
+            if (inquireButton) {
+                inquireButton.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        inquireButton.click();
+                    }
+                });
+            }
+        });
+
+        logInfo('Product interactions initialized', { cardCount: elements.productCards.length });
     }
 
     /**
@@ -822,6 +914,9 @@
                 observer.disconnect();
             }
         });
+
+        // Clear loaded images set
+        state.loadedImages.clear();
 
         logInfo('Cleanup completed');
     }

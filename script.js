@@ -1,6 +1,7 @@
 /**
  * Local Shoe Factory Landing Page - Optimized Interactive JavaScript
  * Performance-optimized with debouncing, efficient DOM queries, and performance monitoring
+ * Enhanced with accessibility features and cross-browser compatibility
  */
 
 (function() {
@@ -24,7 +25,8 @@
         currentImageIndex: 0,
         observers: [],
         loadedImages: new Set(),
-        isInitialized: false
+        isInitialized: false,
+        focusedElementBeforeModal: null
     };
 
     // Configuration with optimized thresholds
@@ -47,7 +49,8 @@
         productImages: null,
         lazyImages: null,
         header: null,
-        productCards: null
+        productCards: null,
+        allFocusableElements: null
     };
 
     /**
@@ -68,9 +71,14 @@
             initHeaderScroll();
             initProductInteractions();
             initPerformanceMonitoring();
+            initAccessibilityFeatures();
+            initKeyboardNavigation();
 
             state.isInitialized = true;
             performanceMetrics.timeToInteractive = performance.now() - performanceMetrics.pageLoadStart;
+
+            // Announce page ready to screen readers
+            announceToScreenReader('Page loaded successfully. Use tab to navigate through the page.');
         } catch (error) {
             handleError('Initialization failed', error);
         }
@@ -89,6 +97,7 @@
         elements.lazyImages = document.querySelectorAll('img[loading="lazy"]');
         elements.header = document.querySelector('header');
         elements.productCards = document.querySelectorAll('.product-card');
+        elements.allFocusableElements = document.querySelectorAll('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
     }
 
     /**
@@ -97,20 +106,192 @@
     function setupEventListeners() {
         if (elements.mobileMenuToggle) {
             elements.mobileMenuToggle.addEventListener('click', handleMobileMenuToggle);
+            elements.mobileMenuToggle.addEventListener('keydown', handleMobileMenuToggleKeyboard);
         }
 
         elements.navLinks.forEach(link => {
             link.addEventListener('click', handleNavLinkClick);
+            link.addEventListener('keydown', handleNavLinkKeyboard);
         });
 
         document.addEventListener('click', handleOutsideClick);
         document.addEventListener('keydown', handleEscapeKey);
+        document.addEventListener('keydown', handleGlobalKeyboardNavigation);
 
         // Optimized resize handler with debouncing
         window.addEventListener('resize', debounce(handleResize, config.debounceDelay), { passive: true });
 
         // Optimized scroll handler with debouncing and passive listener
         window.addEventListener('scroll', debounce(handleScroll, config.scrollDebounce), { passive: true });
+    }
+
+    /**
+     * Initialize accessibility features
+     */
+    function initAccessibilityFeatures() {
+        // Set up live region for announcements
+        const liveRegion = document.createElement('div');
+        liveRegion.id = 'sr-live-region';
+        liveRegion.setAttribute('role', 'status');
+        liveRegion.setAttribute('aria-live', 'polite');
+        liveRegion.setAttribute('aria-atomic', 'true');
+        liveRegion.className = 'visually-hidden';
+        document.body.appendChild(liveRegion);
+
+        // Enhance all interactive elements with proper ARIA attributes
+        enhanceInteractiveElements();
+
+        // Monitor focus for accessibility
+        monitorFocusIndicators();
+    }
+
+    /**
+     * Enhance interactive elements with ARIA attributes
+     */
+    function enhanceInteractiveElements() {
+        // Enhance buttons with proper roles
+        const buttons = document.querySelectorAll('.btn, [role="button"]');
+        buttons.forEach(button => {
+            if (!button.hasAttribute('aria-label') && !button.textContent.trim()) {
+                button.setAttribute('aria-label', 'Interactive button');
+            }
+        });
+
+        // Ensure all images have alt text
+        const images = document.querySelectorAll('img');
+        images.forEach(img => {
+            if (!img.hasAttribute('alt')) {
+                img.setAttribute('alt', 'Decorative image');
+                img.setAttribute('role', 'presentation');
+            }
+        });
+
+        // Enhance form controls with descriptions
+        const formControls = document.querySelectorAll('input, select, textarea');
+        formControls.forEach(control => {
+            if (control.hasAttribute('required') && !control.hasAttribute('aria-required')) {
+                control.setAttribute('aria-required', 'true');
+            }
+        });
+    }
+
+    /**
+     * Monitor and maintain focus indicators
+     */
+    function monitorFocusIndicators() {
+        let lastKeyboardFocus = false;
+
+        document.addEventListener('mousedown', () => {
+            lastKeyboardFocus = false;
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                lastKeyboardFocus = true;
+            }
+        });
+
+        document.addEventListener('focus', (e) => {
+            if (lastKeyboardFocus && e.target) {
+                e.target.classList.add('keyboard-focus');
+            }
+        }, true);
+
+        document.addEventListener('blur', (e) => {
+            if (e.target) {
+                e.target.classList.remove('keyboard-focus');
+            }
+        }, true);
+    }
+
+    /**
+     * Initialize keyboard navigation support
+     */
+    function initKeyboardNavigation() {
+        // Add keyboard support for product cards
+        elements.productCards.forEach((card, index) => {
+            card.setAttribute('tabindex', '0');
+            card.addEventListener('keydown', (e) => handleProductCardKeyboard(e, index));
+        });
+
+        // Add keyboard support for all interactive elements
+        enhanceKeyboardSupport();
+    }
+
+    /**
+     * Enhance keyboard support for all interactive elements
+     */
+    function enhanceKeyboardSupport() {
+        // Ensure all clickable elements are keyboard accessible
+        const clickableElements = document.querySelectorAll('[onclick], .clickable');
+        clickableElements.forEach(element => {
+            if (!element.hasAttribute('tabindex')) {
+                element.setAttribute('tabindex', '0');
+            }
+
+            element.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    element.click();
+                }
+            });
+        });
+    }
+
+    /**
+     * Handle global keyboard navigation
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    function handleGlobalKeyboardNavigation(e) {
+        // Home key - go to top
+        if (e.key === 'Home' && e.ctrlKey) {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            announceToScreenReader('Scrolled to top of page');
+        }
+
+        // End key - go to bottom
+        if (e.key === 'End' && e.ctrlKey) {
+            e.preventDefault();
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            announceToScreenReader('Scrolled to bottom of page');
+        }
+    }
+
+    /**
+     * Handle product card keyboard interaction
+     * @param {KeyboardEvent} e - Keyboard event
+     * @param {number} index - Card index
+     */
+    function handleProductCardKeyboard(e, index) {
+        const card = elements.productCards[index];
+
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const inquireButton = card.querySelector('.btn-small');
+            if (inquireButton) {
+                inquireButton.click();
+                announceToScreenReader('Inquire button activated');
+            }
+        }
+    }
+
+    /**
+     * Announce message to screen readers
+     * @param {string} message - Message to announce
+     * @param {string} priority - Priority level (polite or assertive)
+     */
+    function announceToScreenReader(message, priority = 'polite') {
+        const liveRegion = document.getElementById('sr-live-region');
+        if (!liveRegion) return;
+
+        liveRegion.setAttribute('aria-live', priority);
+        liveRegion.textContent = message;
+
+        // Clear after announcement
+        setTimeout(() => {
+            liveRegion.textContent = '';
+        }, 1000);
     }
 
     /**
@@ -137,6 +318,9 @@
                         if (history.pushState) {
                             history.pushState(null, null, `#${targetId}`);
                         }
+
+                        // Announce navigation to screen readers
+                        announceToScreenReader(`Navigated to ${targetElement.getAttribute('aria-labelledby') || targetId} section`);
                     }
                 });
             }
@@ -168,6 +352,10 @@
 
             if (timeElapsed < config.smoothScrollDuration) {
                 requestAnimationFrame(animation);
+            } else {
+                // Focus target element for accessibility
+                element.focus({ preventScroll: true });
+                element.setAttribute('tabindex', '-1');
             }
         }
 
@@ -191,6 +379,17 @@
     }
 
     /**
+     * Handle mobile menu toggle keyboard interaction
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    function handleMobileMenuToggleKeyboard(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleMobileMenuToggle(e);
+        }
+    }
+
+    /**
      * Open mobile menu
      */
     function openMobileMenu() {
@@ -206,6 +405,18 @@
             hamburger.style.setProperty('--before-transform', 'rotate(90deg) translateX(8px)');
             hamburger.style.setProperty('--after-opacity', '0');
         }
+
+        // Focus first menu item for accessibility
+        const firstMenuItem = elements.navMenu.querySelector('a');
+        if (firstMenuItem) {
+            setTimeout(() => firstMenuItem.focus(), 100);
+        }
+
+        // Announce to screen readers
+        announceToScreenReader('Menu opened', 'assertive');
+
+        // Trap focus within menu
+        trapFocus(elements.navMenu);
     }
 
     /**
@@ -223,6 +434,56 @@
             hamburger.style.transform = '';
             hamburger.style.removeProperty('--before-transform');
             hamburger.style.removeProperty('--after-opacity');
+        }
+
+        // Return focus to toggle button
+        elements.mobileMenuToggle.focus();
+
+        // Announce to screen readers
+        announceToScreenReader('Menu closed', 'assertive');
+
+        // Remove focus trap
+        removeFocusTrap();
+    }
+
+    /**
+     * Trap focus within an element
+     * @param {HTMLElement} element - Element to trap focus within
+     */
+    function trapFocus(element) {
+        const focusableElements = element.querySelectorAll(
+            'a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        element.addEventListener('keydown', handleFocusTrap);
+
+        function handleFocusTrap(e) {
+            if (e.key !== 'Tab') return;
+
+            if (e.shiftKey && document.activeElement === firstElement) {
+                e.preventDefault();
+                lastElement.focus();
+            } else if (!e.shiftKey && document.activeElement === lastElement) {
+                e.preventDefault();
+                firstElement.focus();
+            }
+        }
+
+        element.focusTrapHandler = handleFocusTrap;
+    }
+
+    /**
+     * Remove focus trap
+     */
+    function removeFocusTrap() {
+        if (elements.navMenu && elements.navMenu.focusTrapHandler) {
+            elements.navMenu.removeEventListener('keydown', elements.navMenu.focusTrapHandler);
+            delete elements.navMenu.focusTrapHandler;
         }
     }
 
@@ -244,6 +505,17 @@
             if (state.mobileMenuOpen) {
                 closeMobileMenu();
             }
+        }
+    }
+
+    /**
+     * Handle navigation link keyboard interaction
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    function handleNavLinkKeyboard(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleNavLinkClick(e);
         }
     }
 
@@ -321,9 +593,34 @@
             if (input.type === 'tel') {
                 input.addEventListener('input', (e) => formatPhoneNumber(e.target));
             }
+
+            // Add keyboard navigation support
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && input.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    focusNextFormField(input);
+                }
+            });
         });
 
         elements.contactForm.addEventListener('submit', handleFormSubmit);
+    }
+
+    /**
+     * Focus next form field
+     * @param {HTMLElement} currentField - Current form field
+     */
+    function focusNextFormField(currentField) {
+        const formElements = Array.from(elements.formInputs);
+        const currentIndex = formElements.indexOf(currentField);
+
+        if (currentIndex >= 0 && currentIndex < formElements.length - 1) {
+            formElements[currentIndex + 1].focus();
+        } else if (currentIndex === formElements.length - 1) {
+            // Focus submit button
+            const submitButton = elements.contactForm.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.focus();
+        }
     }
 
     /**
@@ -370,6 +667,8 @@
 
         if (!isValid) {
             showFieldError(field, errorMessage);
+            // Announce error to screen readers
+            announceToScreenReader(`Error: ${errorMessage}`, 'assertive');
         }
 
         return isValid;
@@ -405,6 +704,7 @@
             errorElement = document.createElement('span');
             errorElement.className = 'error-message';
             errorElement.setAttribute('role', 'alert');
+            errorElement.setAttribute('aria-live', 'assertive');
             errorElement.style.cssText = 'color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: block;';
             formGroup.appendChild(errorElement);
         }
@@ -488,10 +788,12 @@
             const firstError = elements.contactForm.querySelector('[aria-invalid="true"]');
             if (firstError) {
                 firstError.focus();
+                announceToScreenReader('Please correct the errors in the form', 'assertive');
             }
             return;
         }
 
+        announceToScreenReader('Sending message...', 'polite');
         submitForm();
     }
 
@@ -504,6 +806,7 @@
 
         if (submitButton) {
             submitButton.disabled = true;
+            submitButton.setAttribute('aria-busy', 'true');
             submitButton.textContent = 'Sending...';
         }
 
@@ -514,8 +817,11 @@
 
             if (submitButton) {
                 submitButton.disabled = false;
+                submitButton.removeAttribute('aria-busy');
                 submitButton.textContent = 'Send Message';
             }
+
+            announceToScreenReader('Message sent successfully!', 'assertive');
         }, 1500);
     }
 
@@ -529,6 +835,7 @@
         const successMessage = document.createElement('div');
         successMessage.className = 'success-message';
         successMessage.setAttribute('role', 'alert');
+        successMessage.setAttribute('aria-live', 'assertive');
         successMessage.style.cssText = `
             background-color: #10b981;
             color: white;
@@ -561,7 +868,7 @@
 
             img.setAttribute('tabindex', '0');
             img.setAttribute('role', 'button');
-            img.setAttribute('aria-label', `View ${img.alt} in full size`);
+            img.setAttribute('aria-label', `View ${img.alt} in full size. Press Enter to open.`);
 
             img.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -579,6 +886,7 @@
     function openLightbox(index) {
         state.currentImageIndex = index;
         state.lightboxOpen = true;
+        state.focusedElementBeforeModal = document.activeElement;
 
         const img = elements.productImages[index];
         if (!img) return;
@@ -588,7 +896,7 @@
         lightbox.id = 'lightbox';
         lightbox.setAttribute('role', 'dialog');
         lightbox.setAttribute('aria-modal', 'true');
-        lightbox.setAttribute('aria-label', 'Image viewer');
+        lightbox.setAttribute('aria-label', 'Image viewer - Press Escape to close');
         lightbox.style.cssText = `
             position: fixed;
             top: 0;
@@ -623,7 +931,7 @@
 
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '&times;';
-        closeButton.setAttribute('aria-label', 'Close lightbox');
+        closeButton.setAttribute('aria-label', 'Close lightbox - Press Escape or click here');
         closeButton.style.cssText = `
             position: absolute;
             top: -40px;
@@ -640,6 +948,12 @@
             transition: transform 0.2s ease;
         `;
         closeButton.addEventListener('click', closeLightbox);
+        closeButton.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                closeLightbox();
+            }
+        });
         closeButton.addEventListener('mouseenter', () => {
             closeButton.style.transform = 'scale(1.2)';
         });
@@ -664,7 +978,12 @@
             }
         });
 
+        // Trap focus in lightbox
+        trapFocus(lightbox);
+
+        // Focus close button and announce
         closeButton.focus();
+        announceToScreenReader('Image viewer opened. Press Escape to close.', 'assertive');
     }
 
     /**
@@ -681,9 +1000,12 @@
             document.body.style.overflow = '';
             state.lightboxOpen = false;
 
-            if (elements.productImages[state.currentImageIndex]) {
-                elements.productImages[state.currentImageIndex].focus();
+            // Return focus to element that opened the lightbox
+            if (state.focusedElementBeforeModal) {
+                state.focusedElementBeforeModal.focus();
             }
+
+            announceToScreenReader('Image viewer closed', 'assertive');
         }, 300);
     }
 
@@ -748,10 +1070,12 @@
 
         tempImg.onerror = () => {
             img.alt = 'Image unavailable - failed to load';
+            img.setAttribute('aria-label', 'Image could not be loaded');
             img.style.backgroundColor = '#f3f4f6';
             img.classList.add('image-error');
 
             const errorOverlay = document.createElement('div');
+            errorOverlay.setAttribute('role', 'alert');
             errorOverlay.style.cssText = `
                 position: absolute;
                 top: 50%;
@@ -769,6 +1093,9 @@
                 container.style.position = 'relative';
                 container.appendChild(errorOverlay);
             }
+
+            // Announce error to screen readers
+            announceToScreenReader('Image failed to load', 'polite');
         };
 
         tempImg.src = src;

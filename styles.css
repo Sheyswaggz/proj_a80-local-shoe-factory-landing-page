@@ -111,6 +111,7 @@ button {
     --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* Container */
@@ -451,7 +452,7 @@ section {
 .products-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: var(--spacing-xl);
+    gap: var(--spacing-2xl);
 }
 
 .product-card {
@@ -460,17 +461,19 @@ section {
     overflow: hidden;
     box-shadow: var(--shadow-base);
     transition: all var(--transition-base);
+    border: 1px solid var(--border-color);
 }
 
 .product-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--primary-blue-light);
 }
 
 .product-image {
     position: relative;
     overflow: hidden;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 4 / 3;
     background-color: var(--gray-100);
 }
 
@@ -481,8 +484,17 @@ section {
     transition: transform var(--transition-slow);
 }
 
+.product-image img[loading="lazy"] {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out, transform var(--transition-slow);
+}
+
+.product-image img[loading="lazy"].loaded {
+    opacity: 1;
+}
+
 .product-card:hover .product-image img {
-    transform: scale(1.05);
+    transform: scale(1.08);
 }
 
 .product-badge {
@@ -495,6 +507,8 @@ section {
     border-radius: var(--border-radius);
     font-size: var(--text-sm);
     font-weight: 600;
+    z-index: 10;
+    box-shadow: var(--shadow-md);
 }
 
 .product-info {
@@ -504,12 +518,13 @@ section {
 .product-info h3 {
     color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
+    font-size: var(--text-xl);
 }
 
 .product-description {
     color: var(--text-secondary);
     font-size: var(--text-base);
-    line-height: 1.6;
+    line-height: 1.7;
     margin-bottom: var(--spacing-lg);
 }
 
@@ -517,12 +532,46 @@ section {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-top: var(--spacing-lg);
 }
 
 .product-price {
     font-size: var(--text-2xl);
     font-weight: 700;
     color: var(--primary-blue);
+}
+
+/* Loading State for Product Images */
+.product-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        var(--gray-200) 0%,
+        var(--gray-100) 50%,
+        var(--gray-200) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    z-index: 1;
+}
+
+.product-image img.loaded ~ .product-image::before,
+.product-image img:not([loading="lazy"]) ~ .product-image::before {
+    display: none;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
 }
 
 /* Contact Section */
@@ -774,6 +823,7 @@ footer {
 
     .products-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-xl);
     }
 
     .footer-content {
@@ -823,6 +873,7 @@ footer {
 
     .products-grid {
         grid-template-columns: repeat(3, 1fr);
+        gap: var(--spacing-2xl);
     }
 
     .footer-content {
@@ -834,6 +885,10 @@ footer {
 @media (min-width: 1280px) {
     .container {
         padding: 0 var(--spacing-2xl);
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(4, 1fr);
     }
 }
 
@@ -891,6 +946,15 @@ footer {
     .btn {
         width: 100%;
     }
+
+    .products-grid {
+        gap: var(--spacing-xl);
+    }
+
+    .product-card {
+        margin: 0 auto;
+        max-width: 400px;
+    }
 }
 
 /* Performance Optimizations */
@@ -914,6 +978,10 @@ footer {
     .btn {
         border: 2px solid currentColor;
     }
+
+    .product-card {
+        border: 2px solid var(--text-primary);
+    }
 }
 
 /* Print Styles */
@@ -933,5 +1001,9 @@ footer {
 
     a {
         text-decoration: underline;
+    }
+
+    .product-card {
+        page-break-inside: avoid;
     }
 }
